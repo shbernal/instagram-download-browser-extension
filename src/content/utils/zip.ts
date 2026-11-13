@@ -15,7 +15,7 @@ async function handleZipFirefox(articleNode: HTMLElement) {
             content: data.caption.text,
         })
     }
-    if ('carousel_media' in data) {
+    if (Array.isArray(data.carousel_media)) {
         const list = await Promise.all(
             data.carousel_media.map(async (resource: any, index: number) => {
                 const url = getImgOrVideoUrl(resource);
@@ -86,7 +86,7 @@ async function handleZipChrome(articleNode: HTMLElement) {
     if (data.caption) {
         entries.push({ name: "caption.txt", data: data.caption.text });
     }
-    if ('carousel_media' in data) {
+    if (Array.isArray(data.carousel_media)) {
         for (let i = 0; i < data.carousel_media.length; i++) {
             const resource = data.carousel_media[i];
             const url = getImgOrVideoUrl(resource);
