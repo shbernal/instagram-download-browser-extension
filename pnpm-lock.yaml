@@ -39,9 +39,6 @@ importers:
       globals:
         specifier: ^17.6.0
         version: 17.6.0
-      sass:
-        specifier: ^1.100.0
-        version: 1.100.0
       sass-embedded:
         specifier: ^1.100.0
         version: 1.100.0
