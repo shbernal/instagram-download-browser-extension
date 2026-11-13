@@ -27,6 +27,7 @@ const ctx = await esbuild.context({
    bundle: true,
    format: 'esm',
    splitting: true,
+   minify: !watch,
    alias: {
       'react': 'preact/compat',
       'react-dom/test-utils': 'preact/test-utils',
