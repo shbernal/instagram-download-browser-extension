@@ -4,6 +4,7 @@ import { getDataFromAPI, getImgOrVideoUrl } from "./fn";
 import { getFilenameFromUrl } from "./filename";
 import { MediaType } from "../../constants";
 import { storageCache } from "./storage";
+import { createZip, type ZipEntry } from "../../zip-store";
 
 async function handleZipFirefox(articleNode: HTMLElement) {
     const data = await getDataFromAPI(articleNode);
@@ -79,13 +80,11 @@ async function handleZipFirefox(articleNode: HTMLElement) {
 }
 
 async function handleZipChrome(articleNode: HTMLElement) {
-    const { BlobReader, BlobWriter, TextReader, ZipWriter } = await import("@zip.js/zip.js");
     const data = await getDataFromAPI(articleNode);
-    const zipFileWriter = new BlobWriter();
-    const zipWriter = new ZipWriter(zipFileWriter);
+    const entries: ZipEntry[] = [];
     const { setting_format_replace_jpeg_with_jpg } = storageCache.settings;
     if (data.caption) {
-        await zipWriter.add("caption.txt", new TextReader(data.caption.text), { useWebWorkers: false });
+        entries.push({ name: "caption.txt", data: data.caption.text });
     }
     if ('carousel_media' in data) {
         for (let i = 0; i < data.carousel_media.length; i++) {
@@ -113,10 +112,7 @@ async function handleZipChrome(articleNode: HTMLElement) {
             if (setting_format_replace_jpeg_with_jpg) {
                 extension = extension.replace('jpeg', 'jpg');
             }
-            await zipWriter.add(
-                `${(i + 1).toString().padStart(2, '0')}-${filename}.${extension}`,
-                new BlobReader(content), { useWebWorkers: false }
-            );
+            entries.push({ name: `${(i + 1).toString().padStart(2, '0')}-${filename}.${extension}`, data: content });
         }
     } else {
         const url = getImgOrVideoUrl(data);
@@ -141,12 +137,10 @@ async function handleZipChrome(articleNode: HTMLElement) {
         if (setting_format_replace_jpeg_with_jpg) {
             extension = extension.replace('jpeg', 'jpg');
         }
-        await zipWriter.add(filename + '.' + extension, new BlobReader(content), {
-            useWebWorkers: false,
-        });
+        entries.push({ name: filename + '.' + extension, data: content });
     }
 
-    const zipContent = await zipWriter.close();
+    const zipContent = await createZip(entries);
     const blobUrl = URL.createObjectURL(zipContent);
     const a = document.createElement('a');
     a.href = blobUrl;
@@ -171,4 +165,4 @@ async function handleZipChrome(articleNode: HTMLElement) {
 export function handleZipDownload(articleNode: HTMLElement) {
     const isFirefox = /Firefox/.test(window.navigator.userAgent);
     return isFirefox ? handleZipFirefox(articleNode) : handleZipChrome(articleNode);
-}
+}

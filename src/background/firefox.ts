@@ -6,6 +6,7 @@ import {
     MESSAGE_ZIP_DOWNLOAD
 } from '../constants';
 import type { ReelsMedia } from '../types/global';
+import { createZip, type ZipEntry } from '../zip-store';
 import { findValueByKey, limitMapSize, saveHighlights, saveProfileReel, saveReels, saveStories } from './fn';
 
 browser.runtime.onInstalled.addListener(async () => {
@@ -244,27 +245,20 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
             await browser.tabs.create({ url: data, index: sender.tab!.index + 1 });
             break;
         case MESSAGE_ZIP_DOWNLOAD:
-            const { BlobReader, BlobWriter, TextReader, ZipWriter } = await import('@zip.js/zip.js');
-            const zipFileWriter = new BlobWriter();
-            const zipWriter = new ZipWriter(zipFileWriter);
-            for (const item of data.blobList) {
-                const { filename, content } = item;
+            const { setting_format_replace_jpeg_with_jpg } = await browser.storage.sync.get(['setting_format_replace_jpeg_with_jpg']);
+            const entries: ZipEntry[] = [];
+            for (const { filename, content } of data.blobList) {
                 if (filename === "caption.txt") {
-                    await zipWriter.add(filename, new TextReader(content), {
-                        useWebWorkers: false,
-                    });
-                    continue
+                    entries.push({ name: filename, data: content });
+                    continue;
                 }
                 let extension = content.type.split('/').pop() || 'jpg';
-                const { setting_format_replace_jpeg_with_jpg } = await browser.storage.sync.get(['setting_format_replace_jpeg_with_jpg']);
                 if (setting_format_replace_jpeg_with_jpg) {
                     extension = extension.replace('jpeg', 'jpg');
                 }
-                await zipWriter.add(filename + '.' + extension, new BlobReader(content), {
-                    useWebWorkers: false,
-                });
+                entries.push({ name: filename + '.' + extension, data: content });
             }
-            const zipContent = await zipWriter.close();
+            const zipContent = await createZip(entries);
             const blobUrl = URL.createObjectURL(zipContent);
             downloadZip(blobUrl, data.zipFileName + '.zip');
             break
