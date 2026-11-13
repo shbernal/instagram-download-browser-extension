@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { checkType, downloadResource, getUrlFromInfoApi, openInNewTab } from './utils/fn';
+import { checkType, downloadResource, getUrlFromInfoApi, openInNewTab, resolveVisibleMedia } from './utils/fn';
 import { getMediaName } from './utils/filename';
 import { MediaType } from "../constants";
 import { storageCache } from './utils/storage';
@@ -32,6 +32,10 @@ const getVideoSrc = async (containerNode: HTMLElement, videoElem: HTMLVideoEleme
 };
 
 async function getUrl(containerNode: HTMLElement) {
+    // Data first: works whenever the post JSON is known and the visible slide can be matched.
+    const resolved = await resolveVisibleMedia(containerNode);
+    if (resolved?.url) return resolved;
+
     const pathnameList = window.location.pathname.split('/').filter((e) => e);
     const isPostDetailWithNameInUrl = pathnameList.length === 3 && pathnameList[1] === 'p';
 

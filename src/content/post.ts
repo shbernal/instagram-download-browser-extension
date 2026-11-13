@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { checkType, downloadResource, getUrlFromInfoApi, openInNewTab, } from './utils/fn';
+import { checkType, downloadResource, getUrlFromInfoApi, openInNewTab, resolveVisibleMedia } from './utils/fn';
 import { getMediaName } from './utils/filename';
 import { getCurrentStepFromDotsList, getParentArticleNode } from "./utils/dom";
 import { CLASS_CUSTOM_BUTTON, likeIconSelector, MediaType, tagIconSelector } from "../constants";
@@ -38,6 +38,10 @@ const getVideoSrc = async (articleNode: HTMLElement, videoElem: HTMLVideoElement
 };
 
 async function postGetUrl(articleNode: HTMLElement) {
+    // Data first: works whenever the post JSON is known and the visible slide can be matched.
+    const resolved = await resolveVisibleMedia(articleNode);
+    if (resolved?.url) return resolved;
+
     let url, res;
     let mediaIndex = -1;
 

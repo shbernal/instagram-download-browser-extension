@@ -1,5 +1,5 @@
 import type { ReelsMedia } from '../types/global';
-import { findValueByKey, saveHighlights, saveProfileReel, saveReels, saveStories } from './fn';
+import { findValueByKey, saveHighlights, saveMediaIndex, saveProfileReel, saveReels, saveStories } from './fn';
 import { CONFIG_LIST, MESSAGE_OPEN_URL, DEFAULT_FILENAME_FORMAT, DEFAULT_DATETIME_FORMAT } from '../constants';
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -87,6 +87,7 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
         } else {
             try {
                 const jsonData = JSON.parse(data);
+                saveMediaIndex(jsonData);
 
                 switch (api) {
                     case 'https://www.instagram.com/api/graphql':

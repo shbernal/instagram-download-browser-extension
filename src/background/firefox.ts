@@ -6,7 +6,7 @@ import {
     MESSAGE_ZIP_DOWNLOAD
 } from '../constants';
 import type { ReelsMedia } from '../types/global';
-import { findValueByKey, limitMapSize, saveHighlights, saveProfileReel, saveReels, saveStories } from './fn';
+import { findValueByKey, limitMapSize, saveHighlights, saveMediaIndex, saveProfileReel, saveReels, saveStories } from './fn';
 
 browser.runtime.onInstalled.addListener(async () => {
     // 1. Initialize default settings
@@ -42,6 +42,9 @@ browser.runtime.onStartup.addListener(() => {
 });
 
 async function listenInstagram(details: browser.webRequest._OnBeforeRequestDetails, jsonData: Record<string, any>) {
+    if (details.url.startsWith('https://www.instagram.com/')) {
+        saveMediaIndex(jsonData);
+    }
     switch (details.url) {
         case 'https://www.instagram.com/api/graphql':
             saveStories(jsonData);

@@ -2,12 +2,35 @@ import type { Stories } from '../types/stories';
 import type { Highlight } from '../types/highlights';
 import type { Reels } from '../types/reels';
 import type { ProfileReel } from '../types/profileReel';
+import { collectPosts, isComplete, slimMedia } from '../media';
 
 export function limitMapSize(map: Map<any, any>, maxSize: number = 200) {
     while (map.size > maxSize) {
         const firstKey = map.keys().next().value;
         map.delete(firstKey);
     }
+}
+
+// Writes to `media_index` are chained so two responses arriving together cannot overwrite each other.
+let mediaIndexQueue: Promise<void> = Promise.resolve();
+
+// Index every complete post found anywhere in the response, keyed by shortcode.
+export function saveMediaIndex(jsonData: unknown) {
+    const posts = collectPosts(jsonData).filter(isComplete);
+    if (posts.length === 0) return mediaIndexQueue;
+    mediaIndexQueue = mediaIndexQueue
+        .then(async () => {
+            const { media_index } = await chrome.storage.local.get(['media_index']);
+            const map = new Map<string, unknown>(media_index);
+            for (const post of posts) {
+                map.delete(post.code!);
+                map.set(post.code!, slimMedia(post));
+            }
+            limitMapSize(map, 300);
+            await chrome.storage.local.set({ media_index: [...map] });
+        })
+        .catch((e) => console.error('saveMediaIndex', e));
+    return mediaIndexQueue;
 }
 
 // save highlights data from json

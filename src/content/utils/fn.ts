@@ -2,6 +2,8 @@ import { MESSAGE_OPEN_URL } from '../../constants';
 import { DownloadParams, getFilenameFromUrl } from './filename';
 
 import { storageCache } from './storage';
+import { shortcodeToMediaId } from '../../media';
+import { findVisibleCarouselIndex, lookupPost } from './media';
 
 export async function openInNewTab(url: string) {
     try {
@@ -71,14 +73,12 @@ const findMediaId = async (postId: string) => {
     const match = window.location.href.match(/www.instagram.com\/stories\/[^/]+\/(\d+)/);
     if (match) return match[1];
     if (!mediaIdCache.has(postId)) {
-        const postUrl = `https://www.instagram.com/p/${postId}/`;
-        const resp = await fetch(postUrl);
-        const text = await resp.text();
-        const idMatch = text.match(mediaIdPattern);
-        if (!idMatch) return null;
-        let mediaId = null;
-        for (let i = 0; i < idMatch.length; ++i) {
-            if (idMatch[i]) mediaId = idMatch[i];
+        // The shortcode decodes to the media id; only fetch the post page if it is not a shortcode.
+        let mediaId = shortcodeToMediaId(postId);
+        if (!mediaId) {
+            const resp = await fetch(`https://www.instagram.com/p/${postId}/`);
+            const idMatch = (await resp.text()).match(mediaIdPattern);
+            mediaId = idMatch?.[1] || idMatch?.[2] || null;
         }
         if (!mediaId) return null;
         mediaIdCache.set(postId, mediaId);
@@ -96,14 +96,17 @@ export const getImgOrVideoUrl = (item: Record<string, any>) => {
 
 export const getDataFromAPI = async (articleNode: HTMLElement) => {
     try {
-        const appId = findAppId();
-        if (!appId) {
-            console.log('Cannot find appid');
-            return null;
-        }
         const postId = findPostId(articleNode);
         if (!postId) {
             console.log('Cannot find post id');
+            return null;
+        }
+        // Prefer data Instagram already sent to the page; the info API is the fallback.
+        const known = await lookupPost(postId);
+        if (known) return known;
+        const appId = findAppId();
+        if (!appId) {
+            console.log('Cannot find appid');
             return null;
         }
         const mediaId = await findMediaId(postId);
@@ -139,11 +142,8 @@ export const getDataFromAPI = async (articleNode: HTMLElement) => {
     }
 };
 
-export const getUrlFromInfoApi = async (articleNode: HTMLElement, mediaIdx = 0): Promise<Record<string, any> | null> => {
-    const data = await getDataFromAPI(articleNode);
-    if (!data) return null;
-
-    if ('carousel_media' in data) {
+function toMediaResult(data: Record<string, any>, mediaIdx: number) {
+    if (Array.isArray(data.carousel_media)) {
         // multi-media post
         const item = data.carousel_media[Math.max(mediaIdx, 0)];
         return {
@@ -163,7 +163,31 @@ export const getUrlFromInfoApi = async (articleNode: HTMLElement, mediaIdx = 0):
             coauthor_producers: data.coauthor_producers?.map((i: any) => i.username) || [],
         };
     }
+}
+
+export const getUrlFromInfoApi = async (articleNode: HTMLElement, mediaIdx = 0): Promise<Record<string, any> | null> => {
+    const data = await getDataFromAPI(articleNode);
+    if (!data) return null;
+    return toMediaResult(data, mediaIdx);
 };
+
+/**
+ * Resolve the media on screen from post data alone: single posts directly, carousels by matching the
+ * rendered slide's file name. Returns null when that is not possible, so callers can fall back to
+ * reading the carousel dots.
+ */
+export async function resolveVisibleMedia(container: HTMLElement) {
+    const data = await getDataFromAPI(container);
+    if (!data) return null;
+    if (!Array.isArray(data.carousel_media)) {
+        const res = toMediaResult(data, 0);
+        return { url: res.url as string, res, mediaIndex: -1 };
+    }
+    const mediaIndex = findVisibleCarouselIndex(container, data);
+    if (mediaIndex < 0) return null;
+    const res = toMediaResult(data, mediaIndex);
+    return { url: res.url as string, res, mediaIndex };
+}
 
 export async function downloadResource(params: DownloadParams) {
     const { url } = params
