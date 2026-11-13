@@ -12,7 +12,7 @@ try {
    await rm(`dist/${platform}`, { recursive: true });
 } catch { }
 
-const entryPoints = ['src/content/index.ts', 'src/content/loader.ts', 'src/popup/index.tsx', 'src/options/index.ts', 'src/mute-lock.ts'];
+const entryPoints = ['src/content/index.ts', 'src/content/loader.ts', 'src/popup/index.ts', 'src/options/index.ts', 'src/mute-lock.ts'];
 
 if (platform === 'chrome') {
    entryPoints.push('src/background/chrome.ts', 'src/xhr.ts', 'src/inject.ts');
@@ -28,12 +28,6 @@ const ctx = await esbuild.context({
    format: 'esm',
    splitting: true,
    minify: !watch,
-   alias: {
-      'react': 'preact/compat',
-      'react-dom/test-utils': 'preact/test-utils',
-      'react-dom': 'preact/compat',
-      'react/jsx-runtime': 'preact/jsx-runtime',
-   },
    plugins: [
       sassPlugin({
          embedded: true
